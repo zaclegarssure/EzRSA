@@ -62,9 +62,13 @@ module RSA: Scheme = {
   }
 }.
 
+print dt.
 axiom test &m: Pr[RSA.key_gen() @ &m : res = 3] = 1%r.
 
  (** Correctness **)
 hoare Correctness: Correctness(RSA).main: true ==> res.
-
-
+proof.
+proc.
+inline *.
+auto.
+smt.
