@@ -54,11 +54,11 @@ const PK: pkey.
 axiom valid_global : support keypairs (PK, SK).
 
 (* An adverseray trying to factor an rsa modulus n*)
-module type RSA_factoring_adv = {
+module type RSAFP_adv = {
   proc factorize(pk: pkey): int * int
 }.
 
-module RSA_factoring_game(Adv: RSA_factoring_adv) = {
+module RSAFP_game(Adv: RSAFP_adv) = {
 
   proc main() = {
   var p': int;
@@ -70,11 +70,11 @@ module RSA_factoring_game(Adv: RSA_factoring_adv) = {
   }
 }.
 
-module type RSA_GOP_adv = {
+module type RSAGOP_adv = {
   proc compute_GO(pk: pkey): int
 }.
 
-module RSA_GOP(Adv: RSA_GOP_adv) = {
+module RSAGOP_game(Adv: RSAGOP_adv) = {
 
   proc main() = {
     var z: int;
@@ -85,29 +85,29 @@ module RSA_GOP(Adv: RSA_GOP_adv) = {
   }
 }.
 
-module GOP_using_FP(A: RSA_factoring_adv): RSA_GOP_adv = {
-    proc compute_GO(pk: pkey): int = {
-      var p: int;
-      var q: int;
-      (p, q) <@ A.factorize(pk);
+module RSAGOP_using_RSAFP(A: RSAFP_adv): RSAGOP_adv = {
+  proc compute_GO(pk: pkey): int = {
+  var p: int;
+  var q: int;
+    (p, q) <@ A.factorize(pk);
 
       return (p-1)*(q-1);
   }
 }.
 
 section.
-declare module A <: RSA_factoring_adv.
+declare module A <: RSAFP_adv.
   (*lemma red2: equiv[RSA_factoring_game(A).main ~ RSA_GOP(B(A)).main : true ==> (res{1} => res{2})].
   proof.
   assume.
   *)
 
   (* TODO prove it*)
-lemma RSAFP_to_GOP_red : equiv[RSA_factoring_game(A).main ~ RSA_GOP(GOP_using_FP(A)).main : true ==> res{1} => res{2}].
+lemma RSAFP_to_RSAGOP_red : equiv[RSAFP_game(A).main ~ RSAGOP_game(RSAGOP_using_RSAFP(A)).main : true ==> res{1} => res{2}].
     admit.
   qed.
 
-  end section.
+ end section.
 (*
 module FactGOP(AdvGop : RSA_GOP_adv) : RSA_factoring_adv = {
   proc factorize(pk: pkey): int * int = {
@@ -118,52 +118,74 @@ module FactGOP(AdvGop : RSA_GOP_adv) : RSA_factoring_adv = {
 }.*)
 
 module type RSAKRP_adv = {
-  proc recover(pk: pkey): int
+  proc recover(n: int, e: int): int
 }.
 
-module RSAKRP(A: RSAKRP_adv) = {
+module RSAKRP_game(A: RSAKRP_adv) = {
   proc main(): bool = {
     var d': int;
-    d' <@ A.recover(PK);
+    d' <@ A.recover(p_n PK, p_e PK);
     return d' = s_d SK;
   }
 }.
 
+(* RSAKRP ==> RSADP *)
+
 module type RSADP_adv = {
-  proc decrypt(n: int, e: int): int
+  proc decrypt(n: int, e: int, y: int): int
 }.
 
-module RSADP(A: RSADP_adv) = {
+module RSADP_game(A: RSADP_adv) = {
   proc main(): bool = {
     var x: int;
     var y: int;
-    var d': int;
-    var x': int;
+    var z: int;
 
     x <$ [0..(2^k)];
     y <- (x ^ p_e PK) %% (p_n PK);
 
-    d' <@ A.decrypt(p_n PK, p_e PK);
-    x' <- (y ^ d') %% (p_n PK);
+    z <@ A.decrypt(p_n PK, p_e PK, y);
 
-    return x = x';
+    return x = z;
   }
 }.
 
+module RSADP_using_RSAKRP(A: RSAKRP_adv): RSADP_adv = {
+  proc decrypt(n: int, e: int, y: int): int = {
+  var d: int;
+    var x: int;
+  d <@ A.recover(p_n PK, p_e PK);
+  x <- (y ^ d) %% (p_n PK);
+  return x;
+  }
+}.
 
+section.
+declare module A <: RSAKRP_adv.
+  (*lemma red2: equiv[RSA_factoring_game(A).main ~ RSA_GOP(B(A)).main : true ==> (res{1} => res{2})].
+  proof.
+  assume.
+  *)
+
+  (* TODO prove it*)
+lemma RSADP_to_KRP_red : equiv[RSAKRP_game(A).main ~ RSADP_game(RSADP_using_RSAKRP(A)).main : true ==> res{1} => res{2}].
+    admit.
+  qed.
+
+  end section.
 
 (* EMP ==> RSAFP*)
 
 (* An adverseray trying to compute the Carmicheal value of n *)
-module type RSA_EMP_adv = {
-  proc lambda(pk: pkey): int
+module type RSAEMP_adv = {
+  proc lambda(n: int): int
 }.
 
-module RSA_EMP_game(Adv: RSA_EMP_adv) = {
+module RSAEMP_game(Adv: RSAEMP_adv) = {
   proc main() = {
   var z: int;
 
-  z <@ Adv.lambda(PK);
+  z <@ Adv.lambda(p_n PK);
 
   return ((z = lcm (s_p SK) (s_q SK)) && z <> 0);
   }
@@ -183,26 +205,24 @@ module RSA_EMP_game(Adv: RSA_EMP_adv) = {
 
 (* RSAKRP ==> EMP *)
 
-module KRP_using_EMP(A: RSA_EMP_adv): RSAKRP_adv = {
-  proc recover(pk: pkey): int = {
+module RSAKRP_using_RSAEMP(A: RSAEMP_adv): RSAKRP_adv = {
+  proc recover(n: int, e: int): int = {
     var d: int;
-    var e: int;
-    d <@ A.lambda(pk);
-    e <- (p_e pk);
+    d <@ A.lambda(n);
 
   return e * d - 1;
   }
 }.
 
 section.
-declare module A <: RSA_EMP_adv.
+declare module A <: RSAEMP_adv.
   (*lemma red2: equiv[RSA_factoring_game(A).main ~ RSA_GOP(B(A)).main : true ==> (res{1} => res{2})].
   proof.
   assume.
   *)
 
   (* TODO prove it*)
-lemma EMP_to_RSAKRP_red : equiv[RSA_EMP_game(A).main ~ RSAKRP(KRP_using_EMP(A)).main : true ==> res{1} => res{2}].
+lemma RSAEMP_to_RSAKRP_red : equiv[RSAEMP_game(A).main ~ RSAKRP_game(RSAKRP_using_RSAEMP(A)).main : true ==> res{1} => res{2}].
     admit.
   qed.
 
