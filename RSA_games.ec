@@ -97,17 +97,17 @@ module GOP_using_FP(A: RSA_factoring_adv): RSA_GOP_adv = {
 
 section.
 declare module A <: RSA_factoring_adv.
-(*lemma red2: equiv[RSA_factoring_game(A).main ~ RSA_GOP(B(A)).main : true ==> (res{1} => res{2})].
-    proof.
-    assume.
+  (*lemma red2: equiv[RSA_factoring_game(A).main ~ RSA_GOP(B(A)).main : true ==> (res{1} => res{2})].
+  proof.
+  assume.
   *)
 
-(* TODO prove it*)
+  (* TODO prove it*)
 lemma RSAFP_to_GOP_red : equiv[RSA_factoring_game(A).main ~ RSA_GOP(GOP_using_FP(A)).main : true ==> res{1} => res{2}].
     admit.
-qed.
+  qed.
 
-end section.
+  end section.
 (*
 module FactGOP(AdvGop : RSA_GOP_adv) : RSA_factoring_adv = {
   proc factorize(pk: pkey): int * int = {
@@ -170,13 +170,40 @@ module RSA_EMP_game(Adv: RSA_EMP_adv) = {
 }.
 
 (* At this point we have to implement the factorization using lambda...
-module EMP_using_LMBDA(A: RSA_EMP_adv): RSA_EMP_adv = {
-  proc compute_GO(pk: pkey): int = {
-  var p: int;
-  var q: int;
-  z <@ A.lambda(pk);
+    module EMP_using_LMBDA(A: RSA_EMP_adv): RSA_EMP_adv = {
+    proc compute_GO(pk: pkey): int = {
+    var p: int;
+    var q: int;
+    z <@ A.lambda(pk);
 
-      return (p-1)*(q-1);
+    return (p-1)*(q-1);
+    }
+    }.
+*)
+
+(* RSAKRP ==> EMP *)
+
+module KRP_using_EMP(A: RSA_EMP_adv): RSAKRP_adv = {
+  proc recover(pk: pkey): int = {
+    var d: int;
+    var e: int;
+    d <@ A.lambda(pk);
+    e <- (p_e pk);
+
+  return e * d - 1;
   }
 }.
-*)
+
+section.
+declare module A <: RSA_EMP_adv.
+  (*lemma red2: equiv[RSA_factoring_game(A).main ~ RSA_GOP(B(A)).main : true ==> (res{1} => res{2})].
+  proof.
+  assume.
+  *)
+
+  (* TODO prove it*)
+lemma EMP_to_RSAKRP_red : equiv[RSA_EMP_game(A).main ~ RSAKRP(KRP_using_EMP(A)).main : true ==> res{1} => res{2}].
+    admit.
+  qed.
+
+  end section.
