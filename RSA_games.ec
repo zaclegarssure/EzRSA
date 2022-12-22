@@ -24,6 +24,9 @@ op lcm_spec a b = fun z =>
 (1 <= z /\ a %| z /\ b %| a)
   /\ (forall x, a %| x => b %| x => z <= x).
 
+(* Inverse modulo n operator *)
+op inv_mod x n = choiceb (fun y: int  => y * x %% n = 1) x.
+
 (* Least common divisor between two numbers*)
 op lcm a b = if (a, b) = (1, 1) then 1 else choiceb (gcd_spec a b) 0.
 
@@ -55,7 +58,7 @@ axiom valid_global : support keypairs (PK, SK).
 
 (* An adverseray trying to factor an rsa modulus n*)
 module type RSAFP_adv = {
-  proc factorize(pk: pkey): int * int
+  proc factorize(n: int): int * int
 }.
 
 module RSAFP_game(Adv: RSAFP_adv) = {
@@ -64,14 +67,14 @@ module RSAFP_game(Adv: RSAFP_adv) = {
   var p': int;
   var q': int;
 
-    (p', q') <@ Adv.factorize(PK);
+    (p', q') <@ Adv.factorize(p_n PK);
 
       return ((p'*q') = p_n PK) && 1 < p' && p' < q' && q' < p_n PK;
   }
 }.
 
 module type RSAGOP_adv = {
-  proc compute_GO(pk: pkey): int
+  proc compute_GO(n: int): int
 }.
 
 module RSAGOP_game(Adv: RSAGOP_adv) = {
@@ -79,22 +82,23 @@ module RSAGOP_game(Adv: RSAGOP_adv) = {
   proc main() = {
     var z: int;
 
-    z <@ Adv.compute_GO(PK);
+    z <@ Adv.compute_GO(p_n PK);
 
     return z = (s_p SK - 1)*(s_q SK - 1);
   }
 }.
 
 module RSAGOP_using_RSAFP(A: RSAFP_adv): RSAGOP_adv = {
-  proc compute_GO(pk: pkey): int = {
+  proc compute_GO(n: int): int = {
   var p: int;
   var q: int;
-    (p, q) <@ A.factorize(pk);
+    (p, q) <@ A.factorize(n);
 
       return (p-1)*(q-1);
   }
 }.
 
+(* RSAFP ==> RSAGOP *)
 section.
 declare module A <: RSAFP_adv.
   (*lemma red2: equiv[RSA_factoring_game(A).main ~ RSA_GOP(B(A)).main : true ==> (res{1} => res{2})].
@@ -129,7 +133,6 @@ module RSAKRP_game(A: RSAKRP_adv) = {
   }
 }.
 
-(* RSAKRP ==> RSADP *)
 
 module type RSADP_adv = {
   proc decrypt(n: int, e: int, y: int): int
@@ -160,6 +163,7 @@ module RSADP_using_RSAKRP(A: RSAKRP_adv): RSADP_adv = {
   }
 }.
 
+ (* RSAKRP ==> RSADP *)
 section.
 declare module A <: RSAKRP_adv.
   (*lemma red2: equiv[RSA_factoring_game(A).main ~ RSA_GOP(B(A)).main : true ==> (res{1} => res{2})].
@@ -168,13 +172,11 @@ declare module A <: RSAKRP_adv.
   *)
 
   (* TODO prove it*)
-lemma RSADP_to_KRP_red : equiv[RSAKRP_game(A).main ~ RSADP_game(RSADP_using_RSAKRP(A)).main : true ==> res{1} => res{2}].
+lemma RSAKRP_to_RSADP_red : equiv[RSAKRP_game(A).main ~ RSADP_game(RSADP_using_RSAKRP(A)).main : true ==> res{1} => res{2}].
     admit.
   qed.
 
   end section.
-
-(* EMP ==> RSAFP*)
 
 (* An adverseray trying to compute the Carmicheal value of n *)
 module type RSAEMP_adv = {
@@ -203,26 +205,48 @@ module RSAEMP_game(Adv: RSAEMP_adv) = {
     }.
 *)
 
-(* RSAKRP ==> EMP *)
+(* EMP ==> RSAFP*)
+(* TODO: EMPTY *)
 
-module RSAKRP_using_RSAEMP(A: RSAEMP_adv): RSAKRP_adv = {
-  proc recover(n: int, e: int): int = {
+module RSAEMP_using_RSAKRP(A: RSAKRP_adv): RSAEMP_adv = {
+  proc lambda(n: int): int = {
     var d: int;
-    d <@ A.lambda(n);
+    var e: int;
+    e <- p_e PK;
+    d <@ A.recover(n, e);
 
   return e * d - 1;
   }
 }.
 
+(* RSAKRP ==> EMP *)
 section.
-declare module A <: RSAEMP_adv.
-  (*lemma red2: equiv[RSA_factoring_game(A).main ~ RSA_GOP(B(A)).main : true ==> (res{1} => res{2})].
-  proof.
-  assume.
-  *)
-
+declare module A <: RSAKRP_adv.
   (* TODO prove it*)
-lemma RSAEMP_to_RSAKRP_red : equiv[RSAEMP_game(A).main ~ RSAKRP_game(RSAKRP_using_RSAEMP(A)).main : true ==> res{1} => res{2}].
+lemma RSAKRP_to_RSAEMP_red : equiv[RSAKRP_game(A).main ~ RSAEMP_game(RSAEMP_using_RSAKRP(A)).main : true ==> res{1} => res{2}].
+    admit.
+  qed.
+
+  end section.
+
+
+ module RSAKRP_using_RSAGOP(A: RSAGOP_adv): RSAKRP_adv = {
+    proc recover(n: int, e: int): int = {
+   var z: int;
+   var d: int;
+     z <@ A.compute_GO(n);
+     d <- inv_mod e z;
+
+     return d;
+    }
+  }.
+
+ (* RSAGOP ==> RSAKRP *)
+  section.
+  declare module A <: RSAGOP_adv.
+
+    (* TODO prove it*)
+lemma RSAGOP_to_RSAKRP_red : equiv[RSAGOP_game(A).main ~ RSAKRP_game(RSAKRP_using_RSAGOP(A)).main : true ==> res{1} => res{2}].
     admit.
   qed.
 
