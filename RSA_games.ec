@@ -36,7 +36,8 @@ prime (s_p sk).
 axiom primality_q sk:
 prime (s_q sk).
 
-op key_eq pk1 pk2 = (p_n pk1 = p_n pk2) && (p_e pk1 = p_e pk2).
+op pkey_eq pk1 pk2 = (p_n pk1 = p_n pk2) /\ (p_e pk1 = p_e pk2).
+op skey_eq sk1 sk2 = (s_d sk1 = s_d sk2) /\ (s_p sk1 = s_p sk2) /\ (s_q sk1 = s_q sk2).
 
 (* An adverseray trying to factor an rsa modulus n*)
 module type RSA_factoring_adv = {
@@ -44,13 +45,14 @@ module type RSA_factoring_adv = {
 }.
 
 module RSA_factoring_game(Adv: RSA_factoring_adv) = {
+  var pk: pkey
+  var sk: skey
+
   proc main() = {
-    var pk: pkey;
-    var sk: skey;
     var p': int;
     var q': int;
 
-    (pk, sk) <$ keypairs;
+    (*(pk, sk) <$ keypairs;*)
 
     (p', q') <@ Adv.factorize(pk);
 
@@ -63,12 +65,13 @@ module type RSA_GOP_adv = {
 }.
 
 module RSA_GOP(Adv: RSA_GOP_adv) = {
+  var pk: pkey
+  var sk: skey
+
   proc main() = {
-    var pk: pkey;
-    var sk: skey;
     var z: int;
 
-    (pk, sk) <$ keypairs;
+    (*(pk, sk) <$ keypairs;*)
     z <@ Adv.compute_GO(pk);
 
     return z = (s_p sk - 1)*(s_q sk - 1);
@@ -84,3 +87,52 @@ module B(A: RSA_factoring_adv): RSA_GOP_adv = {
       return (p-1)*(q-1);
     }
  }.
+
+section.
+declare module A <: RSA_factoring_adv.
+(*lemma red2: equiv[RSA_factoring_game(A).main ~ RSA_GOP(B(A)).main : true ==> (res{1} => res{2})].
+    proof.
+    assume.
+  *)
+
+(* Reduction from factoring to GOP, when using B(A) as an adversary.
+  The precondition is that we consider the same parameters in both games, and that those are valid*)
+lemma red : equiv[RSA_factoring_game(A).main ~ RSA_GOP(B(A)).main :
+      (pkey_eq RSA_factoring_game.pk{1} RSA_GOP.pk{2})
+      /\ (skey_eq RSA_factoring_game.sk{1} RSA_GOP.sk{2})
+      /\ (support keypairs (RSA_factoring_game.pk{1}, RSA_factoring_game.sk{1}))
+      /\ (support keypairs (RSA_GOP.pk{2}, RSA_GOP.sk{2}))
+      ==> res{1} => res{2}].
+
+
+lemma reduction &m: Pr[RSA_factoring_game(A).main() @ &m: res] <= Pr[RSA_GOP(B(A)).main() @ &m: res].
+    proof.
+    proof.
+    byequiv.
+    proc.
+    inline *.
+    auto.
+    simplify.
+    trivial.
+    wp.
+    sp.
+    auto.
+    rnd.
+    smt.
+    seq 1 1.
+    rewrite.
+    subst pk.
+    by smt.
+    rewrite main.
+    simplify.
+    proc;
+    inline *.
+    do 2.
+    trivial.
+    auto.
+    smt.
+    qed.
+    proc.
+    inline *.
+
+end section.
