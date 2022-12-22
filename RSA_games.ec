@@ -1,6 +1,8 @@
 require import AllCore List Ring RealExp ZModP IntDiv Bigalg StdRing StdOrder FloorCeil.
 require import Distr DInterval DList DMap.
+require import Poly.
 require PKE.
+
 
 op k: int.
 
@@ -57,14 +59,10 @@ module type RSA_factoring_adv = {
 }.
 
 module RSA_factoring_game(Adv: RSA_factoring_adv) = {
-  (*var pk: pkey
-  var sk: skey*)
 
   proc main() = {
   var p': int;
   var q': int;
-
-  (*(pk, sk) <$ keypairs;*)
 
     (p', q') <@ Adv.factorize(PK);
 
@@ -77,24 +75,21 @@ module type RSA_GOP_adv = {
 }.
 
 module RSA_GOP(Adv: RSA_GOP_adv) = {
-  (*var pk: pkey
-  var sk: skey*)
 
   proc main() = {
     var z: int;
 
-    (*(pk, sk) <$ keypairs;*)
     z <@ Adv.compute_GO(PK);
 
     return z = (s_p SK - 1)*(s_q SK - 1);
   }
 }.
 
-module B(A: RSA_factoring_adv): RSA_GOP_adv = {
-  proc compute_GO(pk: pkey): int = {
-  var p: int;
-  var q: int;
-    (p, q) <@ A.factorize(pk);
+module GOP_using_FP(A: RSA_factoring_adv): RSA_GOP_adv = {
+    proc compute_GO(pk: pkey): int = {
+      var p: int;
+      var q: int;
+      (p, q) <@ A.factorize(pk);
 
       return (p-1)*(q-1);
   }
@@ -107,70 +102,55 @@ declare module A <: RSA_factoring_adv.
     assume.
   *)
 
-lemma simple_red : equiv[RSA_factoring_game(A).main ~ RSA_GOP(B(A)).main : true ==> res{1} => res{2}].
-proof.
-proc.
-inline *.
-simplify.
-auto.
-apply valid_global.
-trivial.
-smt.
-
-(* Reduction from factoring to GOP, when using B(A) as an adversary.
-  The precondition is that we consider the same parameters in both games, and that those are valid*)
-lemma red : equiv[RSA_factoring_game(A).main ~ RSA_GOP(B(A)).main :
-      (pkey_eq RSA_factoring_game.pk{1} RSA_GOP.pk{2})
-      /\ (skey_eq RSA_factoring_game.sk{1} RSA_GOP.sk{2})
-      /\ (support keypairs (RSA_factoring_game.pk{1}, RSA_factoring_game.sk{1}))
-      /\ (support keypairs (RSA_GOP.pk{2}, RSA_GOP.sk{2}))
-      ==> res{1} => res{2}].
-proof.
-progress.
-proc.
-inline *.
-auto.
-move=> ->.
-smt.
-
-smt.
-apply valid_keypairs.
-reflexivity.
-rewrite pkey_eq.
-inline pkey_eq.
-smt.
-
-lemma reduction &m: Pr[RSA_factoring_game(A).main() @ &m: res] <= Pr[RSA_GOP(B(A)).main() @ &m: res].
-    proof.
-    proof.
-    byequiv.
-    proc.
-    inline *.
-    auto.
-    simplify.
-    trivial.
-    wp.
-    sp.
-    auto.
-    rnd.
-    smt.
-    seq 1 1.
-    rewrite.
-    subst pk.
-    by smt.
-    rewrite main.
-    simplify.
-    proc;
-    inline *.
-    do 2.
-    trivial.
-    auto.
-    smt.
-    qed.
-    proc.
-    inline *.
+(* TODO prove it*)
+lemma RSAFP_to_GOP_red : equiv[RSA_factoring_game(A).main ~ RSA_GOP(GOP_using_FP(A)).main : true ==> res{1} => res{2}].
+    admit.
+qed.
 
 end section.
+(*
+module FactGOP(AdvGop : RSA_GOP_adv) : RSA_factoring_adv = {
+  proc factorize(pk: pkey): int * int = {
+    var ply: Poly.ZPoly;
+    return (9, 9);
+    
+  }
+}.*)
+
+module type RSAKRP_adv = {
+  proc recover(pk: pkey): int
+}.
+
+module RSAKRP(A: RSAKRP_adv) = {
+  proc main(): bool = {
+    var d': int;
+    d' <@ A.recover(PK);
+    return d' = s_d SK;
+  }
+}.
+
+module type RSADP_adv = {
+  proc decrypt(n: int, e: int): int
+}.
+
+module RSADP(A: RSADP_adv) = {
+  proc main(): bool = {
+    var x: int;
+    var y: int;
+    var d': int;
+    var x': int;
+
+    x <$ [0..(2^k)];
+    y <- (x ^ p_e PK) %% (p_n PK);
+
+    d' <@ A.decrypt(p_n PK, p_e PK);
+    x' <- (y ^ d') %% (p_n PK);
+
+    return x = x';
+  }
+}.
+
+
 
 (* EMP ==> RSAFP*)
 
@@ -183,9 +163,9 @@ module RSA_EMP_game(Adv: RSA_EMP_adv) = {
   proc main() = {
   var z: int;
 
-  z <@ Adv.EMP(PK);
+  z <@ Adv.lambda(PK);
 
-  return ((z = lcm (s_p SK) s_q SK) && z <> 0;
+  return ((z = lcm (s_p SK) (s_q SK)) && z <> 0);
   }
 }.
 
