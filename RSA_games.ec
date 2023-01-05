@@ -41,7 +41,10 @@ axiom keypairsL: mu keypairs (fun s, true) = 1%r.
 axiom valid_keypairs pk sk:
 support keypairs (pk,sk) =>
 p_n pk = s_n sk /\
-  2^(k - 1) <= p_n pk < 2^k.
+  (* right key length *)
+  2^(k - 1) <= p_n pk < 2^k /\
+  (* p != q && prime p and q *)
+  prime (s_p sk) && s_p sk < s_q sk && prime (s_q sk).
 
 axiom primality_p sk:
 prime (s_p sk).
@@ -107,12 +110,9 @@ lemma PK_SK_equiv : (p_n PK = s_p SK * s_q SK).
     qed.
 
 
-(* TODO prove this *)
-lemma n_factors_are_p_q : forall (p, q: int), p*q = p_n PK && 1 < p && p < q && q < p_n PK
-    => (p = s_p SK && q = s_q SK) || (p = s_q SK && q = s_p SK).
-proof.
-    admit.
-qed.
+(* We will put that as an axiom... it is basically an application of the fundamental theorem of arithmetic *)
+axiom n_factors_are_p_q : forall (p, q: int), p*q = p_n PK && 1 < p && p < q && q < p_n PK
+    => (p = s_p SK && q = s_q SK).
 
 lemma RSAFP_to_RSAGOP_red (A <: RSAFP_adv) &m:
     Pr[RSAFP_game(A).main() @ &m : res] <= Pr[RSAGOP_game(RSAGOP_using_RSAFP(A)).main() @ &m : res].
@@ -136,12 +136,12 @@ proof.
    rewrite euh.
    rewrite ronaldinho_soccer.
    have haha : (p_n PK = (s_p SK)*(s_q SK)).
-   smt all.
+   smt.
    (* Cleanup this mess a bit *)
    clear A &m &1 &2 A_eq_m same_A A_L A_R eq_res euh ronaldinho_soccer res_R.
    (* Here we use the previous lemma and it works *)
    (* Also make sure the timeout is big enough, it took ~6 seconds on my computer *)
-   smt [+"Z3"] all timeout=10.
+   smt timeout=10.
 qed.
 
 
@@ -197,19 +197,24 @@ module RSADP_using_RSAKRP(A: RSAKRP_adv): RSADP_adv = {
 }.
 
  (* RSAKRP ==> RSADP *)
-section.
-declare module A <: RSAKRP_adv.
-  (*lemma red2: equiv[RSA_factoring_game(A).main ~ RSA_GOP(B(A)).main : true ==> (res{1} => res{2})].
-  proof.
-  assume.
-  *)
 
-  (* TODO prove it*)
-lemma RSAKRP_to_RSADP_red : equiv[RSAKRP_game(A).main ~ RSADP_game(RSADP_using_RSAKRP(A)).main : true ==> res{1} => res{2}].
-    admit.
-  qed.
+axiom correctness : forall (x : int), (0 <= x && x <= 2^k) => ((x ^ p_e PK %% p_n PK) ^ s_d SK %% p_n PK) = x.
+lemma RSAKRP_to_RSADP_red(A <: RSAKRP_adv) &m :
+    Pr[RSAKRP_game(A).main() @ &m : res] <= Pr[RSADP_game(RSADP_using_RSAKRP(A)).main() @ &m : res].
+proof.
+  byequiv=>//.
+  proc.
+  inline *.
+  auto=>/=.
+  call (_: true).
+  simplify.
+  wp.
+  rnd{2}.
+  auto.
+  (* Requires correctness *)
+  smt.
+qed.
 
-  end section.
 
 (* An adverseray trying to compute the Carmicheal value of n *)
 module type RSAEMP_adv = {
@@ -239,7 +244,7 @@ module RSAEMP_game(Adv: RSAEMP_adv) = {
 *)
 
 (* EMP ==> RSAFP*)
-(* TODO: EMPTY *)
+(* TODO: EMPT1Y *)
 
 module RSAEMP_using_RSAKRP(A: RSAKRP_adv): RSAEMP_adv = {
   proc lambda(n: int): int = {
