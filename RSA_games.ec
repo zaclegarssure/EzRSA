@@ -99,19 +99,52 @@ module RSAGOP_using_RSAFP(A: RSAFP_adv): RSAGOP_adv = {
 }.
 
 (* RSAFP ==> RSAGOP *)
-section.
-declare module A <: RSAFP_adv.
-  (*lemma red2: equiv[RSA_factoring_game(A).main ~ RSA_GOP(B(A)).main : true ==> (res{1} => res{2})].
-  proof.
-  assume.
-  *)
+lemma PK_SK_equiv : (p_n PK = s_p SK * s_q SK).
+    have SK_n : s_n SK = s_p SK * s_q SK.
+    smt.
+    rewrite - SK_n.
+    smt all.
+    qed.
 
-  (* TODO prove it*)
-lemma RSAFP_to_RSAGOP_red : equiv[RSAFP_game(A).main ~ RSAGOP_game(RSAGOP_using_RSAFP(A)).main : true ==> res{1} => res{2}].
+
+(* TODO prove this *)
+lemma n_factors_are_p_q : forall (p, q: int), p*q = p_n PK && 1 < p && p < q && q < p_n PK
+    => (p = s_p SK && q = s_q SK) || (p = s_q SK && q = s_p SK).
+proof.
     admit.
-  qed.
+qed.
 
- end section.
+lemma RSAFP_to_RSAGOP_red (A <: RSAFP_adv) &m:
+    Pr[RSAFP_game(A).main() @ &m : res] <= Pr[RSAGOP_game(RSAGOP_using_RSAFP(A)).main() @ &m : res].
+proof.
+   byequiv=>//.
+   proc; inline *.
+   wp.
+   call (_: true).
+   auto.
+   move=> &1 &2 A_eq_m.
+   simplify.
+   split.
+   smt.
+   move=> same_A.
+   move=> res_L res_R A_L A_R eq_res success_FP.
+   have euh : (res_R.`1 = res_L.`1).
+   smt.
+   have ronaldinho_soccer : (res_R.`2 = res_L.`2).
+   smt.
+   auto.
+   rewrite euh.
+   rewrite ronaldinho_soccer.
+   have haha : (p_n PK = (s_p SK)*(s_q SK)).
+   smt all.
+   (* Cleanup this mess a bit *)
+   clear A &m &1 &2 A_eq_m same_A A_L A_R eq_res euh ronaldinho_soccer res_R.
+   (* Here we use the previous lemma and it works *)
+   (* Also make sure the timeout is big enough, it took ~6 seconds on my computer *)
+   smt [+"Z3"] all timeout=10.
+qed.
+
+
 (*
 module FactGOP(AdvGop : RSA_GOP_adv) : RSA_factoring_adv = {
   proc factorize(pk: pkey): int * int = {
