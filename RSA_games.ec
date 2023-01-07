@@ -117,31 +117,31 @@ axiom n_factors_are_p_q : forall (p, q: int), p*q = p_n PK && 1 < p && p < q && 
 lemma RSAFP_to_RSAGOP_red (A <: RSAFP_adv) &m:
     Pr[RSAFP_game(A).main() @ &m : res] <= Pr[RSAGOP_game(RSAGOP_using_RSAFP(A)).main() @ &m : res].
 proof.
-   byequiv=>//.
-   proc; inline *.
-   wp.
-   call (_: true).
-   auto.
-   move=> &1 &2 A_eq_m.
-   simplify.
-   split.
+   byequiv=>//. (* Split the pRHL judgement into three goals. The right part already solve two goals *)
+   proc; inline *. (* Put the code of the game instead of the return value *)
+   wp. (* Replace trivial assignement in post condition (si z{2} = ...) *)
+   call (_: true). (* Do strange thing but the specific case with "true" move the concrete program into the postcondition *)
+   auto. (* Clean the precondition, we do not need n anymore*)
+   move=> &1 &2 A_eq_m. (* Move in the assumption the part of the conclusion that say that that both program have the same memory *)
+   simplify. (* simplify the trivial n = n *)
+   split. (* Split the different conjuncts of the conclusion (2 goals now) *)
+   smt. (* The first goal said that both Adversary are the same in the memory of both program (which is obvious => can be solved by a smt). We are left we only one goal: suppose the adversary is the same on both side, prove the correctness of the reduction. *)
+   move=> same_A. (* Move the assume part (adversary is the same) into the assumption and called this "lemma same_A" *)
+   move=> res_L res_R A_L A_R. (* Move all universally quantified variable into the assumption as arbitrary variables*)
+   move=>  eq_res success_FP. (* Now we are left with result of both program are the same and they share same adversary implies correctness of the reduction. Move the first part into the assumption.*)
+  have eq_p_L_R : (res_R.`1 = res_L.`1). (* Create a sub goal claiming that p are the same in both programs*)
+   smt. (* Solve it by SMT *)
+   have eq_q_L_R : (res_R.`2 = res_L.`2). (* Same for q *)
    smt.
-   move=> same_A.
-   move=> res_L res_R A_L A_R eq_res success_FP.
-   have euh : (res_R.`1 = res_L.`1).
-   smt.
-   have ronaldinho_soccer : (res_R.`2 = res_L.`2).
-   smt.
-   auto.
-   rewrite euh.
-   rewrite ronaldinho_soccer.
-   have haha : (p_n PK = (s_p SK)*(s_q SK)).
-   smt.
+   rewrite eq_p_L_R. (* Use the lemmas we just defined to replace p in the conclusion by the p of the left program*)
+   rewrite eq_q_L_R. (* Do the same for q *)
+   have factorization : (p_n PK = (s_p SK)*(s_q SK)). (* Create a lemma saying that pk.n = sk.p * sk.q *)
+   smt. (* Solve it by smt *)
    (* Cleanup this mess a bit *)
-   clear A &m &1 &2 A_eq_m same_A A_L A_R eq_res euh ronaldinho_soccer res_R.
+  clear A &m &1 &2 A_eq_m same_A A_L A_R eq_res eq_p_L_R eq_q_L_R res_R. (* Remove all useless lemmas*)
    (* Here we use the previous lemma and it works *)
    (* Also make sure the timeout is big enough, it took ~6 seconds on my computer *)
-   smt timeout=10.
+   smt all timeout=10.
 qed.
 
 
@@ -182,7 +182,7 @@ module RSADP_game(A: RSADP_adv) = {
 
     z <@ A.decrypt(p_n PK, p_e PK, y);
 
-    return x = z;
+     return x = z;
   }
 }.
 
