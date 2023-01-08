@@ -212,22 +212,24 @@ module RSADP_using_RSAKRP(A: RSAKRP_adv): RSADP_adv = {
 
 (* RSAKRP ==> RSADP *)
 
+(* We assume the correctness of the RSA cryptosystem : Dec(pk, Enc(sk, X)) = X for all X *)
 axiom correctness : forall (x : int), (0 <= x && x <= 2^k) => ((x ^ p_e PK %% p_n PK) ^ s_d SK %% p_n PK) = x.
 
+(* The proper reduction from key recovery to decryption*)
 lemma RSAKRP_to_RSADP_red(A <: RSAKRP_adv) &m :
     Pr[RSAKRP_game(A).main() @ &m : res] <= Pr[RSADP_game(RSADP_using_RSAKRP(A)).main() @ &m : res].
 proof.
-  byequiv=>//.
-  proc.
-  inline *.
-  auto=>/=.
-  call (_: true).
-  simplify.
-  wp.
-  rnd{2}.
-  auto.
+  byequiv=>//. (* Split the Pr judgement into a pRHL judgement with three goals. The right part already solve two goals *)
+  proc. (* Put the code of the game instead of the return value *)
+  inline *. (* Inline all concrete procedures *)
+  auto=>/=. (* Inline the last assignment of the decrypted value into the post condition *)
+  call (_: true). (* Do strange thing but the specific case with "true" move the concrete program into the postcondition *)
+  simplify. (* We can remove some tautologies in the post condition *)
+  wp. (* Now the post condition does not depends on the last part of the decryption program (only depends on the x's assignment )*)
+  rnd{2}. (* The decryption program now only consist of a uniform assignment of x => remote it and place the random assignment axioms in the post condition followed by => *)
+  auto. (* We can automatically remove the part that said that both memory are the same since the variables in both program have different names *)
   (* Requires correctness *)
-  smt.
+  smt. (* Now the SMT is clever enough to finish the proof (using the correctness of RSA) *)
 qed.
 
 
