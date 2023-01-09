@@ -27,7 +27,7 @@ op lcm_spec a b = fun z =>
 (* Least common divisor between two numbers*)
 op lcm a b = if (a, b) = (0, 0) then 0 else choiceb (lcm_spec a b) 0.
 
-(* Since lcm is not defnied in the standard library we have to prove some properties ourself *)
+(* Since lcm is not defined in the standard library we have to prove some properties ourself *)
 lemma lcm_divides_ab a b: lcm a b %| a*b.
     admit.
 qed.
@@ -73,7 +73,7 @@ const SK: skey.
 const PK: pkey.
 axiom valid_global : support keypairs (PK, SK).
 
-(* An adverseray trying to factor an rsa modulus n*)
+(* An adversery trying to factor an rsa modulus n*)
 module type RSAFP_adv = {
   proc factorize(n: int): int * int
 }.
@@ -131,18 +131,18 @@ axiom n_factors_are_p_q : forall (p, q: int), p*q = p_n PK && 1 < p && p < q && 
 lemma RSAFP_to_RSAGOP_red (A <: RSAFP_adv) &m:
     Pr[RSAFP_game(A).main() @ &m : res] <= Pr[RSAGOP_game(RSAGOP_using_RSAFP(A)).main() @ &m : res].
 proof.
-  byequiv=>//. (* Split the Pr judgement into a pRHL judgement with three goals. The right part already solve two goals *)
+  byequiv=>//. (* Split the Pr judgement into a pRHL judgement with three goals. The right part already solves two goals *)
   proc; inline *. (* Put the code of the game instead of the return value *)
-  wp. (* Replace trivial assignement in post condition (si z{2} = ...) *)
-  call (_: true). (* Do strange thing but the specific case with "true" move the concrete program into the postcondition *)
+  wp. (* Replace trivial assignment in post condition (si z{2} = ...) *)
+  call (_: true). (* Do strange thing but the specific case with "true" moves the concrete program into the postcondition *)
   auto. (* Clean the precondition, we do not need n anymore*)
-  move=> &1 &2 A_eq_m. (* Move in the assumption the part of the conclusion that say that that both program have the same memory *)
+  move=> &1 &2 A_eq_m. (* Move into the assumption the part of the conclusion that says that both programs have the same memory *)
   simplify. (* simplify the trivial n = n *)
   split. (* Split the different conjuncts of the conclusion (2 goals now) *)
-  smt. (* The first goal said that both Adversary are the same in the memory of both program (which is obvious => can be solved by a smt). We are left we only one goal: suppose the adversary is the same on both side, prove the correctness of the reduction. *)
+  smt. (* The first goal said that both Adversaries are the same in the memory of both programs (which is obvious => can be solved by a smt). We are left we only one goal: suppose the adversary is the same on both side, prove the correctness of the reduction. *)
   move=> same_A. (* Move the assume part (adversary is the same) into the assumption and called this "lemma same_A" *)
-  move=> res_L res_R A_L A_R. (* Move all universally quantified variable into the assumption as arbitrary variables*)
-  move=>  eq_res success_FP. (* Now we are left with result of both program are the same and they share same adversary implies correctness of the reduction. Move the first part into the assumption.*)
+  move=> res_L res_R A_L A_R. (* Move all universally quantified variables into the assumption as arbitrary variables*)
+  move=>  eq_res success_FP. (* Now we are left with results of both programs being the same and they share the same adversary implies correctness of the reduction. Move the first part into the assumption.*)
   have eq_p_L_R : (res_R.`1 = res_L.`1). (* Create a sub goal claiming that p are the same in both programs*)
     smt. (* Solve it by SMT *)
   have eq_q_L_R : (res_R.`2 = res_L.`2). (* Same for q *)
@@ -219,21 +219,21 @@ axiom correctness : forall (x : int), (0 <= x && x <= 2^k) => ((x ^ p_e PK %% p_
 lemma RSAKRP_to_RSADP_red(A <: RSAKRP_adv) &m :
     Pr[RSAKRP_game(A).main() @ &m : res] <= Pr[RSADP_game(RSADP_using_RSAKRP(A)).main() @ &m : res].
 proof.
-  byequiv=>//. (* Split the Pr judgement into a pRHL judgement with three goals. The right part already solve two goals *)
+  byequiv=>//. (* Split the Pr judgement into a pRHL judgement with three goals. The right part already solves two goals *)
   proc. (* Put the code of the game instead of the return value *)
   inline *. (* Inline all concrete procedures *)
   auto=>/=. (* Inline the last assignment of the decrypted value into the post condition *)
-  call (_: true). (* Do strange thing but the specific case with "true" move the concrete program into the postcondition *)
+  call (_: true). (* Do strange thing but the specific case with "true" moves the concrete program into the postcondition *)
   simplify. (* We can remove some tautologies in the post condition *)
-  wp. (* Now the post condition does not depends on the last part of the decryption program (only depends on the x's assignment )*)
-  rnd{2}. (* The decryption program now only consist of a uniform assignment of x => remote it and place the random assignment axioms in the post condition followed by => *)
-  auto. (* We can automatically remove the part that said that both memory are the same since the variables in both program have different names *)
+  wp. (* Now the post condition does not depend on the last part of the decryption program (only depends on the x's assignment )*)
+  rnd{2}. (* The decryption program now only consists of a uniform assignment of x => remote it and place the random assignment axioms in the post condition followed by => *)
+  auto. (* We can automatically remove the part that said that both memories are the same, since the variables in both program have different names *)
   (* Requires correctness *)
   smt. (* Now the SMT is clever enough to finish the proof (using the correctness of RSA) *)
 qed.
 
 
-(* An adverseray trying to compute the Carmicheal value of n *)
+(* An adversary trying to compute the Carmicheal value of n *)
 module type RSAEMP_adv = {
   proc lambda(n: int): int
 }.
